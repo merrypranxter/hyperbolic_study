@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HYPER-LOOM // THREE.JS + GLSL QUASICRYSTAL + 14K INSTANCED SPRITE SWARM</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --neon-pink: #ff007f;
+            --neon-cyan: #00f0ff;
+            --neon-lime: #ccff00;
+            --neon-violet: #8a2be2;
+            --neon-orange: #ff5500;
+            --panel-bg: rgba(7, 3, 18, 0.84);
+        }
+
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #05010d;
+            font-family: 'JetBrains Mono', monospace;
+            color: #ffffff;
+        }
+
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            cursor: grab;
+        }
+
+        #canvas-container:active {
+            cursor: grabbing;
+        }
+
+        /* Cyber-Brutalist Glass Panel */
+        .cyber-hud {
+            background: var(--panel-bg);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 2px solid var(--neon-cyan);
+            box-shadow: 
+                6px 6px 0px var(--neon-pink),
+                12px 12px 0px rgba(204, 255, 0, 0.35),
+                0 0 30px rgba(255, 0, 127, 0.3);
+            border-radius: 6px;
+        }
+
+        .cyber-btn {
+            background: rgba(16, 6, 36, 0.95);
+            border: 2px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+            box-shadow: 3px 3px 0px var(--neon-pink);
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            border-radius: 4px;
+            transition: all 0.1s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+
+        .cyber-btn:hover {
+            background: var(--neon-pink);
+            color: #ffffff;
+            border-color: var(--neon-lime);
+            box-shadow: 4px 4px 0px var(--neon-cyan);
+            transform: translate(-1px, -1px);
+        }
+
+        .cyber-btn:active {
+            transform: translate(2px, 2px);
+            box-shadow: 1px 1px 0px var(--neon-cyan);
+        }
+
+        .cyber-btn.active-preset {
+            background: var(--neon-lime);
+            color: #000000;
+            border-color: #ffffff;
+            box-shadow: 3px 3px 0px var(--neon-pink);
+        }
+
+        .layer-pill {
+            border: 1.5px solid rgba(0, 240, 255, 0.5);
+            background: rgba(12, 4, 28, 0.9);
+            color: #9ca3af;
+            border-radius: 4px;
+            transition: all 0.12s ease;
+        }
+
+        .layer-pill.active {
+            border-color: var(--neon-lime);
+            background: rgba(255, 0, 127, 0.28);
+            color: #ffffff;
+            box-shadow: 2px 2px 0px var(--neon-cyan);
+        }
+
+        /* Custom Sliders */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            background: transparent;
+            margin: 5px 0;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 8px;
+            cursor: pointer;
+            background: linear-gradient(90deg, #1b0636 0%, #8a2be2 40%, #ff007f 75%, #00f0ff 100%);
+            border: 1px solid rgba(204, 255, 0, 0.65);
+            border-radius: 3px;
+        }
+
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 18px;
+            width: 12px;
+            background: var(--neon-lime);
+            cursor: pointer;
+            margin-top: -6px;
+            border: 2px solid #000000;
+            border-radius: 2px;
+            box-shadow: 2px 2px 0px var(--neon-pink);
+            transition: transform 0.1s ease, background-color 0.1s ease;
+        }
+
+        input[type=range]::-webkit-slider-thumb:hover {
+            background: #ffffff;
+            transform: scale(1.15);
+        }
+
+        input[type=range]:focus {
+            outline: none;
+        }
+
+        /* Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #06020f;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--neon-pink);
+            border: 1px solid var(--neon-cyan);
+            border-radius: 3px;
+        }
+
+        .selectable-code {
+            user-select: text;
+            -webkit-user-select: text;
+        }
+    </style>
+</head>
+<body class="relative">
+
+    <!-- THREE.JS MOUNT CONTAINER -->
+    <div id="canvas-container"></div>
+
+    <!-- TOP NAVIGATION & TELEMETRY BAR -->
+    <header class="fixed top-3 left-3 right-3 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        <!-- Title Badge -->
+        <div class="pointer-events-auto cyber-hud px-3.5 py-2 flex items-center gap-3">
+            <div class="flex flex-col items-center justify-center">
+                <span class="w-3 h-3 rounded-full bg-[#ccff00] animate-ping absolute"></span>
+                <span class="w-3 h-3 rounded-full bg-[#ccff00] relative border border-black"></span>
+            </div>
+            <div>
+                <h1 class="text-xs sm:text-sm font-extrabold tracking-wider text-[#ccff00] leading-none" style="font-family: 'Syne', sans-serif;">
+                    PSYCHEDELIC QUASICRYSTAL &amp; 14K SPRITE SWARM SYNTH
+                </h1>
+                <p id="telemetry-readout" class="text-[10px] text-[#00f0ff] tracking-widest mt-0.5">
+                    STACK: THREE.JS r128 + GLSL SHADERS + 14,000 INSTANCED GPU SPRITES
+                </p>
+            </div>
+        </div>
+
+        <!-- Action Toolbar -->
+        <div class="pointer-events-auto flex flex-wrap items-center gap-2">
+            <button id="btn-inspect-code" class="cyber-btn px-3 py-2 text-xs bg-[#ff007f] text-white border-[#ccff00]">
+                &lt;/&gt; INSPECT SHADERS &amp; JS CODE
+            </button>
+            <button id="btn-capture-png" class="cyber-btn px-3 py-2 text-xs">
+                CAPTURE HD PNG
+            </button>
+            <button id="btn-pause-play" class="cyber-btn px-3 py-2 text-xs">
+                PAUSE [SPACE]
+            </button>
+            <button id="btn-toggle-hud" class="cyber-btn px-3 py-2 text-xs bg-[#00f0ff] text-black">
+                HIDE HUD [H]
+            </button>
+        </div>
+    </header>
+
+    <!-- COLLAPSIBLE CYBER-BRUTALIST CONTROL PANEL -->
+    <aside id="control-hud" class="fixed top-20 left-3 bottom-3 w-80 sm:w-96 cyber-hud z-20 flex flex-col overflow-hidden transition-transform duration-300">
+        <!-- Panel Header -->
+        <div class="p-3 border-b-2 border-[#ff007f] bg-black/60 flex items-center justify-between">
+            <div>
+                <span class="text-[9px] font-bold tracking-widest text-[#ff007f] block">3-LAYER HYBRID WEBGL PIPELINE</span>
+                <span class="text-xs font-extrabold text-white">MAXIMALIST PARAMETER MATRIX</span>
+            </div>
+            <button id="btn-mutate" class="cyber-btn px-2.5 py-1 text-[10px] bg-[#8a2be2] text-white border-[#ccff00]">
+                RANDOMIZE MUTATION
+            </button>
+        </div>
+
+        <!-- Scrollable Body -->
+        <div class="flex-1 overflow-y-auto p-3.5 space-y-4">
+
+            <!-- LAYER ISOLATION / MIXER PILLS -->
+            <div>
+                <div class="flex items-center justify-between mb-1.5">
+                    <span class="text-[10px] font-extrabold tracking-widest text-[#00f0ff] uppercase">
+                        // Active Render Layers
+                    </span>
+                    <span class="text-[9px] text-gray-400">TOGGLE PASSES</span>
+                </div>
+                <div class="grid grid-cols-3 gap-1.5">
+                    <button id="toggle-layer-bg" class="layer-pill active px-2 py-1.5 text-[9px] font-extrabold text-center">
+                        L1: QUASICRYSTAL
+                    </button>
+                    <button id="toggle-layer-mesh" class="layer-pill active px-2 py-1.5 text-[9px] font-extrabold text-center">
+                        L2: 4D MANIFOLD
+                    </button>
+                    <button id="toggle-layer-swarm" class="layer-pill active px-2 py-1.5 text-[9px] font-extrabold text-center">
+                        L3: 14K SPRITES
+                    </button>
+                </div>
+            </div>
+
+            <!-- 6 CURATED PRESETS -->
+            <div class="border-t border-white/15 pt-3">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-[10px] font-extrabold tracking-widest text-[#ccff00] uppercase">
+                        // Curated Synthesizer Presets
+                    </span>
+                    <span class="text-[9px] text-gray-400">6 BANKS</span>
+                </div>
+                <div class="grid grid-cols-1 gap-1.5">
+                    <button data-preset="lisaFrankQuasicrystal" class="preset-btn cyber-btn active-preset px-2.5 py-1.5 text-[10px] text-left flex justify-between items-center">
+                        <span>01. LISA FRANK QUASICRYSTAL</span>
+                        <span class="text-[9px] opacity-80">7-FOLD NEON</span>
+                    </button>
+                    <button data-preset="diatomSilicaHyperLoom" class="preset-btn cyber-btn px-2.5 py-1.5 text-[10px] text-left flex justify-between items-center">
+                        <span>02. DIATOM SILICA HYPER-LOOM</span>
+                        <span class="text-[9px] opacity-80">15-FOLD RADIOLARIA</span>
+                    </button>
+                    <button data-preset="cliffordAcidTorus" class="preset-btn cyber-btn px-2.5 py-1.5 text-[10px] text-left flex justify-between items-center">
+                        <span>03. 4D CLIFFORD ACID TORUS</span>
+                        <span class="text-[9px] opacity-80">S3 STEREOGRAPHIC</span>
+                    </button>
+                    <button data-preset="halftoneMoireOverdrive" class="preset-btn cyber-btn px-2.5 py-1.5 text-[10px] text-left flex justify-between items-center">
+                        <span>04. HALFTONE MOIRE OVERDRIVE</span>
+                        <span class="text-[9px] opacity-80">CMYK SCREEN-PRINT</span>
+                    </button>
+                    <button data-preset="belousovSpiritSwarm" class="preset-btn cyber-btn px-2.5 py-1.5 text-[10px] text-left flex justify-between items-center">
+                        <span>05. BELOUSOV SPIRIT SWARM</span>
+                        <span class="text-[9px] opacity-80">MAX HOPF VORTEX</span>
+                    </button>
+                    <button data-preset="vhsCyberCathedral" class="preset-btn cyber-btn px-2.5 py-1.5 text-[10px] text-left flex justify-between items-center">
+                        <span>06. VHS CYBER-CATHEDRAL</span>
+                        <span class="text-[9px] opacity-80">21-FOLD CRT GLITCH</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 8 REAL-TIME SYNTHESIS SLIDERS -->
+            <div class="space-y-3 border-t border-white/15 pt-3">
+                <div class="text-[10px] font-extrabold tracking-widest text-[#ff007f] uppercase">
+                    // Real-Time Uniform Modulators
+                </div>
+
+                <!-- 1. Quasicrystal Symmetry -->
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-[10px] font-bold">
+                        <label for="s-symmetry" class="text-gray-200">1. QUASICRYSTAL SYMMETRY (N-FOLD)</label>
+                        <span id="v-symmetry" class="text-[#ccff00]">7</span>
+                    </div>
+                    <input type="range" id="s-symmetry" min="5" max="21" step="1" value="7">
+                </div>
+
+                <!-- 2. Halftone Moire Frequency -->
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-[10px] font-bold">
+                        <label for="s-moire" class="text-gray-200">2. HALFTONE MOIRÉ FREQUENCY</label>
+                        <span id="v-moire" class="text-[#ccff00]">65.0</span>
+                    </div>
+                    <input type="range" id="s-moire" min="15.0" max="160.0" step="1.0" value="65.0">
+                </div>
+
+                <!-- 3. 4D Manifold Morph & Spike Amplitude -->
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-[10px] font-bold">
+                        <label for="s-manifold" class="text-gray-200">3. 4D MANIFOLD MORPH &amp; SPIKES</label>
+                        <span id="v-manifold" class="text-[#ccff00]">1.25</span>
+                    </div>
+                    <input type="range" id="s-manifold" min="0.10" max="2.50" step="0.05" value="1.25">
+                </div>
+
+                <!-- 4. Birefringence & Iridescence Shift -->
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-[10px] font-bold">
+                        <label for="s-iridescence" class="text-gray-200">4. BIREFRINGENCE &amp; IRIDESCENCE</label>
+                        <span id="v-iridescence" class="text-[#ccff00]">3.80</span>
+                    </div>
+                    <input type="range" id="s-iridescence" min="0.50" max="10.00" step="0.10" value="3.80">
+                </div>
+
+                <!-- 5. Sprite Swarm Density & Scale -->
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-[10px] font-bold">
+                        <label for="s-sprites" class="text-gray-200">5. SPRITE SWARM DENSITY &amp; SCALE</label>
+                        <span id="v-sprites" class="text-[#00f0ff]">1.35</span>
+                    </div>
+                    <input type="range" id="s-sprites" min="0.00" max="3.00" step="0.05" value="1.35">
+                </div>
+
+                <!-- 6. Strange Attractor Vortex Speed -->
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-[10px] font-bold">
+                        <label for="s-vortex" class="text-gray-200">6. STRANGE ATTRACTOR VORTEX SPEED</label>
+                        <span id="v-vortex" class="text-[#00f0ff]">0.85</span>
+                    </div>
+                    <input type="range" id="s-vortex" min="0.00" max="2.50" step="0.05" value="0.85">
+                </div>
+
+                <!-- 7. Chromatic Aberration & VHS Tear -->
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-[10px] font-bold">
+                        <label for="s-glitch" class="text-gray-200">7. CHROMATIC SPLIT &amp; VHS TEAR</label>
+                        <span id="v-glitch" class="text-[#00f0ff]">0.35</span>
+                    </div>
+                    <input type="range" id="s-glitch" min="0.00" max="1.50" step="0.02" value="0.35">
+                </div>
+
+                <!-- 8. Acid Chroma Overdrive -->
+                <div class="flex flex-col">
+                    <div class="flex justify-between text-[10px] font-bold">
+                        <label for="s-acid" class="text-gray-200">8. ACID CHROMA OVERDRIVE</label>
+                        <span id="v-acid" class="text-[#00f0ff]">2.20</span>
+                    </div>
+                    <input type="range" id="s-acid" min="0.80" max="3.80" step="0.05" value="2.20">
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer Instructions -->
+        <div class="p-2.5 border-t-2 border-[#00f0ff] bg-black/85 text-[10px] text-gray-300 flex items-center justify-between">
+            <span>DRAG: 3D ORBIT + WAVE WARP // SCROLL: ZOOM</span>
+            <button id="btn-reset-camera" class="text-[#ccff00] underline font-bold hover:text-white">RESET CAM</button>
+        </div>
+    </aside>
+
+    <!-- CODE & SHADER INSPECTOR MODAL -->
+    <div id="code-modal" class="fixed inset-0 z-40 bg-black/85 backdrop-blur-md hidden items-center justify-center p-3 sm:p-6">
+        <div class="cyber-hud w-full max-w-6xl h-full max-h-[90vh] flex flex-col overflow-hidden">
+            <!-- Modal Header -->
+            <div class="p-3.5 border-b-2 border-[#ff007f] bg-black flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <span class="text-[10px] font-bold text-[#ff007f] tracking-widest block">ARCHITECTURE &amp; SOURCE INSPECTOR</span>
+                    <h2 class="text-sm sm:text-base font-extrabold text-[#ccff00]">
+                        THREE.JS r128 + GLSL SHADERS + 14,000 INSTANCED SPRITE SWARM
+                    </h2>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                    <button id="btn-copy-code" class="cyber-btn px-3 py-1.5 text-xs bg-[#ccff00] text-black border-white">
+                        COPY ACTIVE CODE TAB
+                    </button>
+                    <button id="btn-close-modal" class="cyber-btn px-3 py-1.5 text-xs bg-[#ff007f] text-white">
+                        CLOSE [ESC]
+                    </button>
+                </div>
+            </div>
+
+            <!-- Code Section Tabs -->
+            <div class="bg-[#0b0418] border-b border-white/15 px-3 py-2 flex flex-wrap gap-2">
+                <button data-tab="bgShader" class="code-tab-btn cyber-btn active-preset px-2.5 py-1 text-[10px]">
+                    1. L1: QUASICRYSTAL &amp; MOIRÉ GLSL
+                </button>
+                <button data-tab="manifoldShader" class="code-tab-btn cyber-btn px-2.5 py-1 text-[10px]">
+                    2. L2: 4D CLIFFORD MANIFOLD GLSL
+                </button>
+                <button data-tab="spriteShader" class="code-tab-btn cyber-btn px-2.5 py-1 text-[10px]">
+                    3. L3: INSTANCED SPRITE SWARM GLSL
+                </button>
+                <button data-tab="jsInstancing" class="code-tab-btn cyber-btn px-2.5 py-1 text-[10px]">
+                    4. THREE.JS INSTANCING ENGINE (JS)
+                </button>
+            </div>
+
+            <!-- Code Display Pre -->
+            <div class="flex-1 overflow-auto p-4 bg-[#04010a] font-mono text-xs leading-relaxed text-[#00f0ff] selectable-code">
+                <pre id="code-inspector-pre" class="whitespace-pre-wrap break-words selectable-code"></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST NOTIFICATION -->
+    <div id="toast-banner" class="fixed bottom-5 right-5 z-50 cyber-hud px-4 py-2.5 text-xs font-extrabold text-[#ccff00] pointer-events-none opacity-0 translate-y-4 transition-all duration-200">
+        SYNTHESIZER READY
+    </div>
+
+    <!-- =================================================================== -->
+    <!-- LAYER 1: FULL-VIEWPORT QUASICRYSTAL + BZ SPIRAL + HALFTONE MOIRE    -->
+    <!-- =================================================================== -->
+    <script id="bg-vertex-shader" type="x-shader/x-vertex">
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = vec4(position.xy, 0.9999, 1.0);
+        }
+    </script>
+
+    <script id="bg-fragment-shader" type="x-shader/x-fragment">
+        precision highp float;
+        varying vec2 vUv;
+
+        uniform vec2  u_resolution;
+        uniform float u_time;
+        uniform vec2  u_mouse;
+        uniform vec2  u_camRot;
+        uniform float u_camZoom;
+        uniform float u_symmetry;
+        uniform float u_moireFreq;
+        uniform float u_iridescence;
+        uniform float u_vortexSpeed;
+        uniform float u_glitch;
+        uniform float u_acid;
+
+        #define PI  3.14159265359
+        #define TAU 6.28318530718
+        #define PHI 1.61803398875
+
+        float hash12(vec2 p) {
+            vec3 p3 = fract(vec3(p.xyx) * 0.1031);
+            p3 += dot(p3, p3.yzx + 33.33);
+            return fract((p3.x + p3.y) * p3.z);
+        }
+
+        mat2 rot2(float a) {
+            float s = sin(a), c = cos(a);
+            return mat2(c, -s, s, c);
+        }
+
+        vec3 tanhColor(vec3 x) {
+            vec3 cx = clamp(x, -10.0, 10.0);
+            vec3 e2x = exp(2.0 * cx);
+            return (e2x - 1.0) / (e2x + 1.0);
+        }
+
+        // Hyper-saturated 1980s New Wave / Lisa Frank multi-band cosine palette
+        vec3 acidPalette(float t, float shift) {
+            float p = t + shift;
+            vec3 a = vec3(0.55, 0.48, 0.60);
+            vec3 b = vec3(0.50, 0.50, 0.48);
+            vec3 c = vec3(1.00, 1.00, 1.00);
+            vec3 d = vec3(0.00, 0.33, 0.67);
+            vec3 base = a + b * cos(TAU * (c * p + d));
+
+            // Anchor neon stops: Hot Pink (#ff007f), Cyber Cyan (#00f0ff), Acid Lime (#ccff00), Ultraviolet (#8a2be2), Tangerine (#ff5500)
+            vec3 cPink   = vec3(1.00, 0.00, 0.50);
+            vec3 cCyan   = vec3(0.00, 0.94, 1.00);
+            vec3 cLime   = vec3(0.80, 1.00, 0.00);
+            vec3 cViolet = vec3(0.54, 0.17, 0.89);
+            vec3 cOrange = vec3(1.00, 0.33, 0.00);
+
+            float cycle = fract(p * 1.25);
+            vec3 neon = mix(
+                mix(cPink, cCyan, smoothstep(0.0, 0.28, cycle)),
+                mix(
+                    mix(cLime, cOrange, smoothstep(0.28, 0.62, cycle)),
+                    cViolet,
+                    smoothstep(0.62, 0.95, cycle)
+                ),
+                smoothstep(0.2, 0.8, sin(p * TAU) * 0.5 + 0.5)
+            );
+
+            return mix(base, neon, 0.62);
+        }
+
+        // Compute N-Fold Penrose / Ammann-Beenker Quasicrystal + Belousov-Zhabotinsky spiral field
+        vec2 evaluateQuasicrystalField(vec2 p, float t) {
+            // Slight log-polar conformal swirl coupled to camera & mouse
+            vec2 centerOffset = u_mouse * 0.45 + vec2(sin(u_camRot.y), sin(u_camRot.x)) * 0.35;
+            vec2 q = p - centerOffset;
+            float r = length(q) + 1e-4;
+            float angle = atan(q.y, q.x);
+
+            // Belousov-Zhabotinsky multi-center chemical spiral wave
+            float bzSpiral1 = sin(r * 9.0 - angle * 4.0 - t * 2.2);
+            float bzSpiral2 = cos(length(p + vec2(cos(t * 0.4), sin(t * 0.3)) * 0.7) * 11.0 + angle * 3.0 - t * 1.8);
+            float bzWave = (bzSpiral1 + bzSpiral2) * 0.5;
+
+            // Warped coordinate for Quasicrystal summation
+            vec2 wp = q * (4.2 * u_camZoom) + vec2(bzSpiral1, bzSpiral2) * 0.28;
+
+            float sumPrimary = 0.0;
+            float sumHarmonic = 0.0;
+            float count = clamp(u_symmetry, 5.0, 21.0);
+
+            for (int i = 0; i < 21; i++) {
+                float fi = float(i);
+                if (fi >= count) break;
+
+                // N-fold star angle
+                float theta = fi * PI / count + t * 0.06;
+                vec2 dir = vec2(cos(theta), sin(theta));
+
+                // Fundamental wave + Golden Ratio (PHI) phason shift
+                float proj = dot(wp, dir);
+                sumPrimary  += cos(proj * 3.2 - t * 1.4 + sin(fi * PHI + t * 0.5));
+                sumHarmonic += sin(proj * 3.2 * PHI + t * 1.1 + bzWave * 1.6);
+            }
+
+            float norm = 1.0 / sqrt(count);
+            return vec2(sumPrimary * norm + bzWave * 0.55, sumHarmonic * norm - bzWave * 0.45);
+        }
+
+        // Rotated Screen-Print CMYK / Neon Halftone Moire Matrix
+        float halftoneScreen(vec2 uvPixel, float angleRad, float freq, float value) {
+            vec2 ruv = rot2(angleRad) * uvPixel * freq;
+            vec2 grid = sin(ruv * PI);
+            float dotPattern = (grid.x * grid.y) * 0.5 + 0.5;
+            return smoothstep(value - 0.18, value + 0.18, dotPattern);
+        }
+
+        void main() {
+            vec2 uv = vUv;
+            vec2 p = uv * 2.0 - 1.0;
+            float aspect = u_resolution.x / max(u_resolution.y, 1.0);
+            p.x *= aspect;
+
+            float t = u_time * max(u_vortexSpeed, 0.05);
+
+            // --- VHS / ANALOG HORIZONTAL TAPE TEAR ---
+            if (u_glitch > 0.001) {
+                float band = floor(uv.y * 48.0 - t * 7.0);
+                float h = hash12(vec2(band, floor(t * 16.0)));
+                float tear = step(0.90 - u_glitch * 0.22, h);
+                p.x += (hash12(vec2(uv.y * 80.0, t)) - 0.5) * 0.14 * u_glitch * tear;
+                p.x += sin(uv.y * 32.0 + t * 11.0) * 0.007 * u_glitch;
+            }
+
+            // --- CHROMATIC ABERRATION OFFSET ---
+            float caShift = 0.014 * u_glitch;
+            vec2 qcR = evaluateQuasicrystalField(p + vec2(caShift, 0.0), t);
+            vec2 qcG = evaluateQuasicrystalField(p, t);
+            vec2 qcB = evaluateQuasicrystalField(p - vec2(caShift, 0.0), t);
+
+            // Extract interference ridges and cellular pores
+            float ridgeR = abs(qcR.x) + abs(qcR.y) * 0.6;
+            float ridgeG = abs(qcG.x) + abs(qcG.y) * 0.6;
+            float ridgeB = abs(qcB.x) + abs(qcB.y) * 0.6;
+
+            float phaseR = ridgeR * 0.32 * u_iridescence - t * 0.15;
+            float phaseG = ridgeG * 0.32 * u_iridescence - t * 0.15;
+            float phaseB = ridgeB * 0.32 * u_iridescence - t * 0.15;
+
+            vec3 colR = acidPalette(phaseR, 0.00);
+            vec3 colG = acidPalette(phaseG, 0.12);
+            vec3 colB = acidPalette(phaseB, 0.24);
+
+            vec3 baseColor = vec3(colR.r, colG.g, colB.b);
+
+            // --- ROTATED HALFTONE MOIRE INTERFERENCE MATRIX ---
+            // Two counter-rotated halftone dot screens (15 deg and 75 deg) + golden ratio sub-screen
+            float htCyan    = halftoneScreen(p, 0.2618 + t * 0.03, u_moireFreq, fract(ridgeG * 0.45));
+            float htMagenta = halftoneScreen(p, 1.3090 - t * 0.02, u_moireFreq * 1.05, fract(qcG.y * 0.5 + 0.5));
+            float htYellow  = halftoneScreen(p, 0.7854, u_moireFreq * 0.85, fract((qcG.x - qcG.y) * 0.35));
+
+            vec3 halftoneInk = vec3(1.0);
+            halftoneInk = mix(halftoneInk, vec3(0.00, 0.95, 1.00), htCyan * 0.45);
+            halftoneInk = mix(halftoneInk, vec3(1.00, 0.00, 0.55), htMagenta * 0.45);
+            halftoneInk = mix(halftoneInk, vec3(0.85, 1.00, 0.00), htYellow * 0.38);
+
+            // Blend quasicrystal wave interference with halftone Moiré dots
+            float filigreeLine = smoothstep(0.04, 0.22, abs(sin((qcG.x + qcG.y) * PI * 1.5)));
+            vec3 combined = mix(baseColor * halftoneInk * 1.35, baseColor * 1.45, 0.45);
+            combined *= mix(0.28, 1.25, filigreeLine);
+
+            // Add glowing neon nodes at quasicrystal constructive interference peaks
+            float constructivePeak = smoothstep(1.35, 2.2, abs(qcG.x) + abs(qcG.y));
+            combined += acidPalette(phaseG + 0.5, 0.3) * constructivePeak * 0.85;
+
+            // --- ACID CHROMA OVERDRIVE ---
+            float luma = dot(combined, vec3(0.299, 0.587, 0.114));
+            vec3 overdriven = mix(vec3(luma), combined, u_acid);
+            overdriven = tanhColor(overdriven * (0.75 + 0.22 * u_acid));
+
+            // Optional CRT scanline grit
+            if (u_glitch > 0.01) {
+                float scan = sin(gl_FragCoord.y * PI) * 0.10 * u_glitch;
+                overdriven = clamp(overdriven - scan, 0.05, 1.0);
+            }
+
+            gl_FragColor = vec4(overdriven, 1.0);
+        }
+    </script>
+
+    <!-- =================================================================== -->
+    <!-- LAYER 2: 4D CLIFFORD TORUS / RADIOLARIAN MANIFOLD SHADERS           -->
+    <!-- =================================================================== -->
+    <script id="manifold-vertex-shader" type="x-shader/x-vertex">
+        attribute vec2 a_uvParam; // (u, v) in [0, TAU]
+
+        uniform float u_time;
+        uniform vec2  u_mouse;
+        uniform float u_symmetry;
+        uniform float u_manifoldMorph;
+        uniform float u_vortexSpeed;
+
+        varying vec3 vWorldPos;
+        varying vec3 vNormal;
+        varying vec2 vParam;
+        varying float vDisplacement;
+        varying float vStressMetric;
+
+        #define PI  3.14159265359
+        #define TAU 6.28318530718
+
+        // Compute 4D Clifford Torus stereographically projected to 3D + Torus Knot hybrid
+        vec3 computeManifoldPosition(float u, float v, float t, out float rawSpike, out float stress) {
+            float speedT = t * max(u_vortexSpeed, 0.05);
+            float nSym = floor(clamp(u_symmetry, 5.0, 21.0));
+
+            // --- 1. 4D CLIFFORD TORUS ON S^3 WITH 4D ROTOR ROTATION ---
+            float r1 = 0.72;
+            float r2 = 0.68;
+            vec4 p4 = vec4(
+                r1 * cos(u),
+                r1 * sin(u),
+                r2 * cos(v),
+                r2 * sin(v)
+            );
+
+            // Rotate in 4D XW and YZ planes
+            float rotXW = speedT * 0.55 + u_mouse.x * 1.2;
+            float rotYZ = speedT * 0.42 + u_mouse.y * 1.2;
+
+            float c1 = cos(rotXW), s1 = sin(rotXW);
+            p4.xw = mat2(c1, -s1, s1, c1) * p4.xw;
+
+            float c2 = cos(rotYZ), s2 = sin(rotYZ);
+            p4.yz = mat2(c2, -s2, s2, c2) * p4.yz;
+
+            // Rotate in 4D ZW plane for true inside-out Clifford eversion
+            float rotZW = speedT * 0.35;
+            float c3 = cos(rotZW), s3 = sin(rotZW);
+            p4.zw = mat2(c3, -s3, s3, c3) * p4.zw;
+
+            // Stereographic projection from 4D hypersphere to 3D space
+            float denom = max(1.65 - p4.w, 0.38);
+            vec3 clifford3D = p4.xyz / denom * 1.25;
+
+            // --- 2. (3, 5) HARMONIC TORUS KNOT ---
+            float pKnot = 3.0;
+            float qKnot = 5.0;
+            float rTube = 0.52 + 0.18 * cos(qKnot * u + speedT);
+            float rCore = 1.45 + rTube * cos(qKnot * u);
+            vec3 knotPos = vec3(
+                rCore * cos(pKnot * u),
+                rCore * sin(pKnot * u),
+                rTube * sin(qKnot * u)
+            );
+            // Tube cross-section normal frame
+            vec3 tangent = normalize(vec3(-sin(pKnot * u), cos(pKnot * u), 0.5 * cos(qKnot * u)));
+            vec3 binorm  = normalize(cross(tangent, vec3(0.0, 0.0, 1.0)) + vec3(1e-4));
+            vec3 normVec = cross(binorm, tangent);
+            vec3 torusKnot3D = knotPos + (binorm * cos(v) + normVec * sin(v)) * 0.48;
+
+            // Blend between 4D Clifford Torus and Harmonic Torus Knot
+            float morphBlend = sin(speedT * 0.35) * 0.5 + 0.5;
+            vec3 basePos = mix(clifford3D, torusKnot3D, morphBlend * 0.55);
+
+            // --- 3. 3D SPHERICAL HARMONICS & RADIOLARIAN BIOMINERAL SPIKES ---
+            float shWave1 = sin(nSym * u + speedT * 1.8) * cos(floor(nSym * 0.5) * v - speedT * 1.4);
+            float shWave2 = cos((nSym - 2.0) * v + speedT * 1.2) * sin(3.0 * u + v * 2.0);
+            float gyroidMicro = sin(basePos.x * 5.0) * cos(basePos.y * 5.0) + sin(basePos.y * 5.0) * cos(basePos.z * 5.0);
+
+            // Sharp radiolarian silica spines
+            float spine = pow(abs(shWave1), 1.6) * sign(shWave1) * 0.32 + shWave2 * 0.16 + gyroidMicro * 0.08;
+            rawSpike = spine * u_manifoldMorph;
+            stress = abs(shWave1 - shWave2) + abs(gyroidMicro) * 0.7 + (1.0 / denom);
+
+            vec3 radialDir = normalize(basePos + vec3(1e-5));
+            return basePos + radialDir * rawSpike * 0.55;
+        }
+
+        void main() {
+            float u = a_uvParam.x;
+            float v = a_uvParam.y;
+            vParam = a_uvParam;
+
+            float spike0, stress0;
+            vec3 pos0 = computeManifoldPosition(u, v, u_time, spike0, stress0);
+
+            // Finite-difference tangent & bitangent for exact analytical displaced normals
+            float eps = 0.015;
+            float sU, stU, sV, stV;
+            vec3 posU = computeManifoldPosition(u + eps, v, u_time, sU, stU);
+            vec3 posV = computeManifoldPosition(u, v + eps, u_time, sV, stV);
+
+            vec3 dU = posU - pos0;
+            vec3 dV = posV - pos0;
+            vec3 calcNormal = normalize(cross(dU, dV));
+
+            vDisplacement = spike0;
+            vStressMetric = stress0;
+
+            vec4 worldPosition = modelMatrix * vec4(pos0, 1.0);
+            vWorldPos = worldPosition.xyz;
+            vNormal = normalize(mat3(modelMatrix) * calcNormal);
+
+            gl_Position = projectionMatrix * viewMatrix * worldPosition;
+        }
+    </script>
+
+    <script id="manifold-fragment-shader" type="x-shader/x-fragment">
+        precision highp float;
+
+        varying vec3 vWorldPos;
+        varying vec3 vNormal;
+        varying vec2 vParam;
+        varying float vDisplacement;
+        varying float vStressMetric;
+
+        uniform float u_time;
+        uniform float u_symmetry;
+        uniform float u_moireFreq;
+        uniform float u_iridescence;
+        uniform float u_acid;
+        uniform float u_glitch;
+
+        #define PI  3.14159265359
+        #define TAU 6.28318530718
+
+        vec3 tanhColor(vec3 x) {
+            vec3 cx = clamp(x, -10.0, 10.0);
+            vec3 e2x = exp(2.0 * cx);
+            return (e2x - 1.0) / (e2x + 1.0);
+        }
+
+        vec3 thinFilmPalette(float phase) {
+            vec3 a = vec3(0.52, 0.50, 0.55);
+            vec3 b = vec3(0.48, 0.48, 0.48);
+            vec3 c = vec3(1.00, 1.00, 1.00);
+            vec3 d = vec3(0.00, 0.33, 0.67);
+            vec3 cosPal = a + b * cos(TAU * (c * phase + d));
+
+            // Inject Lisa Frank Hot Pink, Cyan, Acid Lime, Tangerine
+            vec3 hotPink  = vec3(1.00, 0.00, 0.52);
+            vec3 cyberCyn = vec3(0.00, 0.96, 1.00);
+            vec3 acidLime = vec3(0.82, 1.00, 0.00);
+            vec3 tangOrng = vec3(1.00, 0.32, 0.00);
+
+            float s = fract(phase * 1.4);
+            vec3 neon = mix(
+                mix(hotPink, cyberCyn, smoothstep(0.0, 0.4, s)),
+                mix(acidLime, tangOrng, smoothstep(0.4, 0.9, s)),
+                sin(phase * TAU) * 0.5 + 0.5
+            );
+            return mix(cosPal, neon, 0.65);
+        }
+
+        void main() {
+            vec3 N = normalize(vNormal);
+            if (!gl_FrontFacing) N = -N;
+
+            vec3 V = normalize(cameraPosition - vWorldPos);
+            float NdotV = max(dot(N, V), 0.0);
+            float fresnel = pow(1.0 - NdotV, 2.6);
+
+            // --- 1. RADIOLARIAN DIATOM SILICA LATTICE & GYROID PORES ---
+            float u = vParam.x;
+            float v = vParam.y;
+            float sym = clamp(u_symmetry, 5.0, 21.0);
+
+            // Hexagonal / Chladni biomineral pore pattern across parametric surface
+            float latticeU = sin(u * sym * 2.0 + v * sym);
+            float latticeV = cos(v * sym * 2.0 - u * sym);
+            float poreCell = abs(latticeU * latticeV);
+            float silicaStrut = smoothstep(0.08, 0.26, poreCell);
+
+            // High-frequency halftone micro-ribs on the 3D shell
+            float microRib = sin((u + v) * u_moireFreq * 0.7 - u_time * 2.0) * 0.5 + 0.5;
+
+            // --- 2. THIN-FILM SOAP-BUBBLE IRIDESCENCE & PHOTOELASTIC STRESS ---
+            float opticalPath = (
+                vStressMetric * 0.65 +
+                vDisplacement * 1.4 +
+                (1.0 - NdotV) * 1.85 +
+                microRib * 0.18
+            ) * u_iridescence * 0.42 - u_time * 0.25;
+
+            // Chromatic dispersion across optical path
+            float disp = 0.045 + 0.06 * u_glitch;
+            vec3 colR = thinFilmPalette(opticalPath + disp);
+            vec3 colG = thinFilmPalette(opticalPath);
+            vec3 colB = thinFilmPalette(opticalPath - disp);
+
+            vec3 filmColor = vec3(colR.r, colG.g, colB.b);
+
+            // Deep bioluminescent pore glow inside radiolarian fenestrations
+            vec3 poreGlow = thinFilmPalette(opticalPath + 0.48) * 1.45;
+            vec3 surfaceBase = mix(poreGlow, filmColor, silicaStrut);
+
+            // --- 3. MULTI-LIGHT SPECULAR & NEON RIM SHADING ---
+            vec3 L1 = normalize(vec3(sin(u_time * 0.9) * 3.0, 2.5, cos(u_time * 0.7) * 3.0));
+            vec3 L2 = normalize(vec3(-2.5, cos(u_time * 0.6) * 2.5, -2.0));
+
+            vec3 H1 = normalize(L1 + V);
+            vec3 H2 = normalize(L2 + V);
+
+            float diff1 = max(dot(N, L1), 0.0);
+            float diff2 = max(dot(N, L2), 0.0);
+
+            float spec1 = pow(max(dot(N, H1), 0.0), 64.0);
+            float spec2 = pow(max(dot(N, H2), 0.0), 32.0);
+
+            // Screen-space derivative micro-facet sparkle
+            vec3 dPosX = dFdx(vWorldPos);
+            vec3 dPosY = dFdy(vWorldPos);
+            vec3 facetNormal = normalize(cross(dPosX, dPosY));
+            float facetSpec = pow(max(dot(facetNormal, H1), 0.0), 28.0) * 0.45;
+
+            vec3 litColor = surfaceBase * (0.38 + 0.62 * (diff1 * 0.7 + diff2 * 0.45));
+            litColor += vec3(1.0, 0.98, 0.88) * (spec1 * 1.15 + facetSpec);
+            litColor += vec3(0.00, 0.95, 1.00) * spec2 * 0.75;
+
+            // Intense Neon Fresnel Rim (Hot Pink / Acid Lime)
+            vec3 rimColor = mix(vec3(1.0, 0.0, 0.55), vec3(0.80, 1.0, 0.0), sin(u * 4.0 + u_time) * 0.5 + 0.5);
+            litColor += rimColor * fresnel * 1.85;
+
+            // --- 4. ACID SATURATION OVERDRIVE ---
+            float luma = dot(litColor, vec3(0.299, 0.587, 0.114));
+            vec3 finalRGB = mix(vec3(luma), litColor, u_acid);
+            finalRGB = tanhColor(finalRGB * (0.82 + 0.20 * u_acid));
+
+            gl_FragColor = vec4(finalRGB, 1.0);
+        }
+    </script>
+
+    <!-- =================================================================== -->
+    <!-- LAYER 3: 14,000 GPU-INSTANCED PSYCHEDELIC SPRITE SWARM SHADERS      -->
+    <!-- =================================================================== -->
+    <script id="sprite-vertex-shader" type="x-shader/x-vertex">
+        // Per-instance attributes (14,000 sprites)
+        attribute vec4 a_orbitParams; // x: theta0, y: phi0, z: radiusShell, w: speedMult
+        attribute vec4 a_glyphMeta;   // x: glyphType (0..3), y: colorSeed, z: baseScale, w: torusKnotRatio
+
+        uniform float u_time;
+        uniform vec2  u_mouse;
+        uniform float u_spriteScale;
+        uniform float u_vortexSpeed;
+        uniform float u_manifoldMorph;
+
+        varying vec2  vUv;
+        varying float vGlyphType;
+        varying float vColorPhase;
+        varying float vSpinAngle;
+
+        #define PI  3.14159265359
+        #define TAU 6.28318530718
+
+        void main() {
+            vUv = uv;
+            vGlyphType = a_glyphMeta.x;
+
+            float t = u_time * max(u_vortexSpeed, 0.05) * a_orbitParams.w;
+            float u = a_orbitParams.x + t * 1.15;
+            float v = a_orbitParams.y + t * a_glyphMeta.w * 1.45;
+            float shell = a_orbitParams.z;
+
+            // --- HOPF FIBRATION & STRANGE ATTRACTOR HELICAL FLOW ---
+            // Map (u, v, shell) onto linked Hopf circles on S^3 projected to R^3
+            float eta = 0.35 + 0.95 * fract(shell + sin(t * 0.25) * 0.15);
+            float cEta = cos(eta), sEta = sin(eta);
+
+            vec4 hopf4D = vec4(
+                cEta * cos(u),
+                cEta * sin(u),
+                sEta * cos(v),
+                sEta * sin(v)
+            );
+
+            // 4D Thomas-like Strange Attractor curl perturbation
+            float curlX = sin(hopf4D.y * 2.4 + t);
+            float curlY = sin(hopf4D.z * 2.4 - t);
+            float curlZ = cos(hopf4D.x * 2.4 + t * 0.8);
+
+            // Stereographic projection to 3D scene space
+            float stereoDenom = max(1.55 - hopf4D.w * 0.75, 0.42);
+            vec3 orbitCenter = (hopf4D.xyz / stereoDenom) * (1.35 + shell * 1.65);
+            orbitCenter += vec3(curlX, curlY, curlZ) * (0.28 * u_manifoldMorph);
+
+            // Mouse magnetic vortex swirl
+            orbitCenter.xy += u_mouse * 0.55 * sin(u + v);
+
+            // --- CAMERA-FACING BILLBOARD QUAD EXPANSION ---
+            vec4 mvPosition = modelViewMatrix * vec4(orbitCenter, 1.0);
+
+            // Pulse sprite size rhythmically
+            float pulse = 0.75 + 0.45 * sin(u * 3.0 - v * 2.0 + u_time * 3.5);
+            float finalSize = a_glyphMeta.z * u_spriteScale * pulse;
+
+            // Rotate the 2D billboard quad in screen space
+            float spin = u_time * 1.5 * a_orbitParams.w + a_glyphMeta.y * TAU;
+            vSpinAngle = spin;
+            float cs = cos(spin), sn = sin(spin);
+            vec2 rotatedCorner = mat2(cs, -sn, sn, cs) * position.xy;
+
+            mvPosition.xy += rotatedCorner * finalSize;
+
+            vColorPhase = a_glyphMeta.y + length(orbitCenter) * 0.22 - u_time * 0.18;
+            gl_Position = projectionMatrix * mvPosition;
+        }
+    </script>
+
+    <script id="sprite-fragment-shader" type="x-shader/x-fragment">
+        precision highp float;
+
+        varying vec2  vUv;
+        varying float vGlyphType;
+        varying float vColorPhase;
+        varying float vSpinAngle;
+
+        uniform float u_time;
+        uniform float u_iridescence;
+        uniform float u_acid;
+
+        #define PI  3.14159265359
+        #define TAU 6.28318530718
+
+        vec3 spriteNeonPalette(float t) {
+            // High-intensity neon palette: Hot Pink, Cyber Cyan, Acid Lime, Ultraviolet, Tangerine
+            vec3 a = vec3(0.58, 0.52, 0.62);
+            vec3 b = vec3(0.48, 0.48, 0.48);
+            vec3 c = vec3(1.00, 1.00, 1.00);
+            vec3 d = vec3(0.05, 0.35, 0.68);
+            return a + b * cos(TAU * (c * t + d));
+        }
+
+        void main() {
+            // Center UV to [-1, 1]
+            vec2 p = vUv * 2.0 - 1.0;
+            float r = length(p);
+            if (r > 1.0) discard;
+
+            float a = atan(p.y, p.x);
+            float glyphMask = 0.0;
+            float coreGlow  = exp(-r * 3.6);
+
+            // --- PROCEDURAL VECTOR GLYPH SYNTHESIS (4 DISTINCT SDF ARCHETYPES) ---
+            if (vGlyphType < 0.5) {
+                // GLYPH 0: 6-Pointed Diatom Silica Starburst + Filigree Rings
+                float starRay = abs(cos(a * 3.0)) * 0.65 + abs(cos(a * 6.0)) * 0.35;
+                float starBody = smoothstep(starRay, starRay - 0.18, r);
+                float ring = smoothstep(0.09, 0.0, abs(r - 0.52));
+                float pores = smoothstep(0.2, 0.8, sin(r * 28.0 - u_time * 4.0));
+                glyphMask = max(starBody * pores, ring);
+            } else if (vGlyphType < 1.5) {
+                // GLYPH 1: Concentric Moiré Target Bullseye
+                float rings = sin(r * 24.0 - u_time * 5.0);
+                float angularTicks = cos(a * 8.0 + r * 10.0);
+                float bullseye = smoothstep(-0.2, 0.65, rings * angularTicks);
+                float outerRim = smoothstep(0.95, 0.78, r);
+                glyphMask = bullseye * outerRim;
+            } else if (vGlyphType < 2.5) {
+                // GLYPH 2: Psychedelic Vesica Piscis / All-Seeing Iris
+                vec2 ep = vec2(p.x * 0.85, p.y * 1.35);
+                float eyeRadius = length(ep);
+                float sclera = smoothstep(0.92, 0.72, eyeRadius);
+                float iris = smoothstep(0.08, 0.0, abs(r - 0.38)) + smoothstep(0.20, 0.05, r);
+                float cilia = smoothstep(0.4, 0.9, cos(a * 12.0)) * smoothstep(0.75, 0.35, r);
+                glyphMask = sclera * clamp(iris + cilia * 0.75, 0.0, 1.0);
+            } else {
+                // GLYPH 3: Cyber-Brutalist Crosshair Reticle & Diamond Lattice
+                float diamond = abs(p.x) + abs(p.y);
+                float dShell = smoothstep(0.08, 0.0, abs(diamond - 0.68));
+                float crossAxes = smoothstep(0.07, 0.0, min(abs(p.x), abs(p.y))) * step(r, 0.88);
+                float centerDot = smoothstep(0.24, 0.08, r);
+                glyphMask = clamp(dShell + crossAxes + centerDot, 0.0, 1.0);
+            }
+
+            float alpha = clamp(glyphMask * 0.88 + coreGlow * 0.45, 0.0, 1.0) * smoothstep(1.0, 0.72, r);
+            if (alpha < 0.03) discard;
+
+            // Dual-band iridescent sprite coloration
+            float phase = vColorPhase * u_iridescence * 0.35 + r * 0.65;
+            vec3 col1 = spriteNeonPalette(phase);
+            vec3 col2 = spriteNeonPalette(phase + 0.38);
+            vec3 color = mix(col1, col2, glyphMask);
+
+            // Boost white-hot neon core
+            color += vec3(1.0, 0.98, 0.90) * pow(coreGlow, 2.2) * 0.75;
+
+            // Apply Acid Chroma Overdrive
+            float luma = dot(color, vec3(0.299, 0.587, 0.114));
+            color = mix(vec3(luma), color, u_acid);
+
+            gl_FragColor = vec4(color, alpha);
+        }
+    </script>
+
+    <!-- =================================================================== -->
+    <!-- MAIN THREE.JS SYNTHESIZER & INSTANCED SPRITE SWARM ENGINE           -->
+    <!-- =================================================================== -->
+    <script id="main-engine-script">
+        // --- 1. GLOBAL SYNTHESIZER STATE & PRESETS ---
+        const state = {
+            symmetry: 7,
+            moireFreq: 65.0,
+            manifoldMorph: 1.25,
+            iridescence: 3.80,
+            spriteScale: 1.35,
+            vortexSpeed: 0.85,
+            glitch: 0.35,
+            acid: 2.20,
+            paused: false,
+            showLayerBG: true,
+            showLayerMesh: true,
+            showLayerSwarm: true,
+            // Camera & Mouse Interactive State
+            camTheta: 0.35,
+            camPhi: 0.22,
+            targetCamTheta: 0.35,
+            targetCamPhi: 0.22,
+            camDistance: 5.4,
+            targetCamDistance: 5.4,
+            mouseX: 0.0,
+            mouseY: 0.0,
+            targetMouseX: 0.0,
+            targetMouseY: 0.0
+        };
+
+        const PRESETS = {
+            lisaFrankQuasicrystal: {
+                symmetry: 7,
+                moireFreq: 65.0,
+                manifoldMorph: 1.25,
+                iridescence: 3.80,
+                spriteScale: 1.35,
+                vortexSpeed: 0.85,
+                glitch: 0.35,
+                acid: 2.20
+            },
+            diatomSilicaHyperLoom: {
+                symmetry: 15,
+                moireFreq: 98.0,
+                manifoldMorph: 1.95,
+                iridescence: 6.20,
+                spriteScale: 1.15,
+                vortexSpeed: 0.60,
+                glitch: 0.18,
+                acid: 2.65
+            },
+            cliffordAcidTorus: {
+                symmetry: 9,
+                moireFreq: 45.0,
+                manifoldMorph: 2.35,
+                iridescence: 8.40,
+                spriteScale: 1.55,
+                vortexSpeed: 1.20,
+                glitch: 0.25,
+                acid: 2.95
+            },
+            halftoneMoireOverdrive: {
+                symmetry: 11,
+                moireFreq: 145.0,
+                manifoldMorph: 0.85,
+                iridescence: 2.90,
+                spriteScale: 0.95,
+                vortexSpeed: 0.55,
+                glitch: 0.62,
+                acid: 2.50
+            },
+            belousovSpiritSwarm: {
+                symmetry: 13,
+                moireFreq: 72.0,
+                manifoldMorph: 1.40,
+                iridescence: 5.10,
+                spriteScale: 2.65,
+                vortexSpeed: 1.75,
+                glitch: 0.28,
+                acid: 2.80
+            },
+            vhsCyberCathedral: {
+                symmetry: 21,
+                moireFreq: 115.0,
+                manifoldMorph: 1.65,
+                iridescence: 7.50,
+                spriteScale: 1.75,
+                vortexSpeed: 1.10,
+                glitch: 1.25,
+                acid: 3.40
+            }
+        };
+
+        // --- 2. TOAST NOTIFICATION HELPER ---
+        let toastTimer = null;
+        function showToast(message) {
+            const banner = document.getElementById('toast-banner');
+            banner.textContent = message;
+            banner.classList.remove('opacity-0', 'translate-y-4');
+            banner.classList.add('opacity-100', 'translate-y-0');
+            if (toastTimer) clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                banner.classList.remove('opacity-100', 'translate-y-0');
+                banner.classList.add('opacity-0', 'translate-y-4');
+            }, 2400);
+        }
+
+        // --- 3. THREE.JS SCENE, CAMERA & MULTI-LAYER ARCHITECTURE ---
+        let renderer, scene, camera;
+        let bgScene, bgCamera, bgMesh, bgMaterial;
+        let manifoldMesh, manifoldMaterial;
+        let spriteSwarmMesh, spriteSwarmMaterial;
+        const SPRITE_COUNT = 14000;
+
+        function buildParametricManifoldGeometry(uSteps, vSteps) {
+            const geometry = new THREE.BufferGeometry();
+            const vertexCount = (uSteps + 1) * (vSteps + 1);
+
+            const positions = new Float32Array(vertexCount * 3);
+            const uvs = new Float32Array(vertexCount * 2);
+            const uvParams = new Float32Array(vertexCount * 2);
+            const indices = [];
+
+            let ptr3 = 0;
+            let ptr2 = 0;
+
+            for (let iu = 0; iu <= uSteps; iu++) {
+                const uFrac = iu / uSteps;
+                const u = uFrac * Math.PI * 2.0;
+
+                for (let iv = 0; iv <= vSteps; iv++) {
+                    const vFrac = iv / vSteps;
+                    const v = vFrac * Math.PI * 2.0;
+
+                    // Placeholder positions (displaced 100% in custom GLSL vertex shader)
+                    positions[ptr3++] = Math.cos(u) * 1.5;
+                    positions[ptr3++] = Math.sin(u) * 1.5;
+                    positions[ptr3++] = Math.sin(v) * 0.5;
+
+                    uvs[ptr2] = uFrac;
+                    uvs[ptr2 + 1] = vFrac;
+
+                    uvParams[ptr2] = u;
+                    uvParams[ptr2 + 1] = v;
+                    ptr2 += 2;
+                }
+            }
+
+            for (let iu = 0; iu < uSteps; iu++) {
+                for (let iv = 0; iv < vSteps; iv++) {
+                    const a = iu * (vSteps + 1) + iv;
+                    const b = (iu + 1) * (vSteps + 1) + iv;
+                    const c = (iu + 1) * (vSteps + 1) + (iv + 1);
+                    const d = iu * (vSteps + 1) + (iv + 1);
+
+                    indices.push(a, b, d);
+                    indices.push(b, c, d);
+                }
+            }
+
+            geometry.setIndex(indices);
+            geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            geometry.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
+            geometry.setAttribute('a_uvParam', new THREE.BufferAttribute(uvParams, 2));
+            return geometry;
+        }
+
+        function buildInstancedSpriteSwarmGeometry(instanceCount) {
+            // Base billboard quad geometry
+            const baseQuad = new THREE.PlaneBufferGeometry(1.0, 1.0);
+            const instancedGeo = new THREE.InstancedBufferGeometry();
+
+            instancedGeo.index = baseQuad.index;
+            instancedGeo.attributes.position = baseQuad.attributes.position;
+            instancedGeo.attributes.uv = baseQuad.attributes.uv;
+            instancedGeo.instanceCount = instanceCount;
+
+            const orbitParams = new Float32Array(instanceCount * 4);
+            const glyphMeta = new Float32Array(instanceCount * 4);
+
+            const goldenAngle = Math.PI * (3.0 - Math.sqrt(5.0));
+
+            for (let i = 0; i < instanceCount; i++) {
+                const i4 = i * 4;
+                const frac = i / instanceCount;
+
+                // Fibonacci / Hopf distribution across 4D phase space
+                const theta0 = (i * goldenAngle) % (Math.PI * 2.0);
+                const phi0   = (frac * Math.PI * 2.0 * 13.0) % (Math.PI * 2.0);
+                const shell  = Math.pow(Math.random(), 0.72); // Radial shell distribution
+                const speedM = (0.45 + Math.random() * 1.15) * (i % 2 === 0 ? 1.0 : -1.0);
+
+                orbitParams[i4 + 0] = theta0;
+                orbitParams[i4 + 1] = phi0;
+                orbitParams[i4 + 2] = shell;
+                orbitParams[i4 + 3] = speedM;
+
+                // Glyph type (0: Diatom Star, 1: Moire Bullseye, 2: Vesica Eye, 3: Cyber Reticle)
+                const glyphType = i % 4;
+                const colorSeed = Math.random();
+                const baseScale = 0.032 + Math.pow(Math.random(), 2.2) * 0.095;
+                const knotRatio = 1.0 + (i % 5) * 0.5;
+
+                glyphMeta[i4 + 0] = glyphType;
+                glyphMeta[i4 + 1] = colorSeed;
+                glyphMeta[i4 + 2] = baseScale;
+                glyphMeta[i4 + 3] = knotRatio;
+            }
+
+            instancedGeo.setAttribute('a_orbitParams', new THREE.InstancedBufferAttribute(orbitParams, 4));
+            instancedGeo.setAttribute('a_glyphMeta', new THREE.InstancedBufferAttribute(glyphMeta, 4));
+
+            return instancedGeo;
+        }
+
+        function initThreeSynthesizer() {
+            const container = document.getElementById('canvas-container');
+
+            renderer = new THREE.WebGLRenderer({
+                antialias: true,
+                powerPreference: 'high-performance',
+                preserveDrawingBuffer: true
+            });
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.autoClear = false;
+            container.appendChild(renderer.domElement);
+
+            // --- PASS 1: FULL-VIEWPORT QUASICRYSTAL & HALFTONE MOIRE SCENE ---
+            bgScene = new THREE.Scene();
+            bgCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+
+            bgMaterial = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('bg-vertex-shader').textContent,
+                fragmentShader: document.getElementById('bg-fragment-shader').textContent,
+                depthWrite: false,
+                depthTest: false,
+                uniforms: {
+                    u_resolution:  { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+                    u_time:        { value: 0.0 },
+                    u_mouse:       { value: new THREE.Vector2(0.0, 0.0) },
+                    u_camRot:      { value: new THREE.Vector2(0.0, 0.0) },
+                    u_camZoom:     { value: 1.0 },
+                    u_symmetry:    { value: state.symmetry },
+                    u_moireFreq:   { value: state.moireFreq },
+                    u_iridescence: { value: state.iridescence },
+                    u_vortexSpeed: { value: state.vortexSpeed },
+                    u_glitch:      { value: state.glitch },
+                    u_acid:        { value: state.acid }
+                }
+            });
+
+            const bgQuad = new THREE.PlaneBufferGeometry(2, 2);
+            bgMesh = new THREE.Mesh(bgQuad, bgMaterial);
+            bgScene.add(bgMesh);
+
+            // --- PASS 2 & 3: 3D PERSPECTIVE SCENE (MANIFOLD + 14K SPRITE SWARM) ---
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(52, window.innerWidth / window.innerHeight, 0.1, 100.0);
+
+            // Layer 2: 4D Clifford / Radiolarian Manifold (220 x 88 = 38,720 triangles)
+            const manifoldGeo = buildParametricManifoldGeometry(220, 88);
+            manifoldMaterial = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('manifold-vertex-shader').textContent,
+                fragmentShader: document.getElementById('manifold-fragment-shader').textContent,
+                side: THREE.DoubleSide,
+                extensions: { derivatives: true },
+                uniforms: {
+                    u_time:          { value: 0.0 },
+                    u_mouse:         { value: new THREE.Vector2(0.0, 0.0) },
+                    u_symmetry:      { value: state.symmetry },
+                    u_moireFreq:     { value: state.moireFreq },
+                    u_manifoldMorph: { value: state.manifoldMorph },
+                    u_iridescence:   { value: state.iridescence },
+                    u_vortexSpeed:   { value: state.vortexSpeed },
+                    u_glitch:        { value: state.glitch },
+                    u_acid:          { value: state.acid }
+                }
+            });
+
+            manifoldMesh = new THREE.Mesh(manifoldGeo, manifoldMaterial);
+            manifoldMesh.frustumCulled = false;
+            scene.add(manifoldMesh);
+
+            // Layer 3: 14,000 GPU-Instanced Sprite Swarm
+            const swarmGeo = buildInstancedSpriteSwarmGeometry(SPRITE_COUNT);
+            spriteSwarmMaterial = new THREE.ShaderMaterial({
+                vertexShader: document.getElementById('sprite-vertex-shader').textContent,
+                fragmentShader: document.getElementById('sprite-fragment-shader').textContent,
+                transparent: true,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending,
+                uniforms: {
+                    u_time:          { value: 0.0 },
+                    u_mouse:         { value: new THREE.Vector2(0.0, 0.0) },
+                    u_spriteScale:   { value: state.spriteScale },
+                    u_vortexSpeed:   { value: state.vortexSpeed },
+                    u_manifoldMorph: { value: state.manifoldMorph },
+                    u_iridescence:   { value: state.iridescence },
+                    u_acid:          { value: state.acid }
+                }
+            });
+
+            spriteSwarmMesh = new THREE.Mesh(swarmGeo, spriteSwarmMaterial);
+            spriteSwarmMesh.frustumCulled = false;
+            scene.add(spriteSwarmMesh);
+
+            // Window Resize Handler
+            window.addEventListener('resize', onWindowResize);
+            onWindowResize();
+
+            // Setup Pointer / Touch Orbit & Wave Perturbation
+            setupInteractionHandlers(container);
+        }
+
+        function onWindowResize() {
+            const w = window.innerWidth;
+            const h = window.innerHeight;
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+            renderer.setPixelRatio(dpr);
+            renderer.setSize(w, h);
+
+            camera.aspect = w / Math.max(h, 1);
+            camera.updateProjectionMatrix();
+
+            if (bgMaterial) {
+                bgMaterial.uniforms.u_resolution.value.set(w * dpr, h * dpr);
+            }
+        }
+
+        // --- 4. INTERACTIVE CAMERA ORBIT, ZOOM & WAVE PERTURBATION ---
+        function setupInteractionHandlers(container) {
+            let isPointerDown = false;
+            let prevX = 0;
+            let prevY = 0;
+
+            function updateNormalizedPointer(clientX, clientY) {
+                state.targetMouseX = (clientX / window.innerWidth) * 2.0 - 1.0;
+                state.targetMouseY = 1.0 - (clientY / window.innerHeight) * 2.0;
+            }
+
+            container.addEventListener('mousedown', (e) => {
+                isPointerDown = true;
+                prevX = e.clientX;
+                prevY = e.clientY;
+                updateNormalizedPointer(e.clientX, e.clientY);
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                updateNormalizedPointer(e.clientX, e.clientY);
+                if (!isPointerDown) return;
+
+                const dx = e.clientX - prevX;
+                const dy = e.clientY - prevY;
+                prevX = e.clientX;
+                prevY = e.clientY;
+
+                state.targetCamTheta -= dx * 0.0065;
+                state.targetCamPhi = Math.max(-1.35, Math.min(1.35, state.targetCamPhi + dy * 0.0065));
+            });
+
+            window.addEventListener('mouseup', () => {
+                isPointerDown = false;
+            });
+
+            // Touch Support
+            container.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    isPointerDown = true;
+                    prevX = e.touches[0].clientX;
+                    prevY = e.touches[0].clientY;
+                    updateNormalizedPointer(prevX, prevY);
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (!isPointerDown || e.touches.length === 0) return;
+                const cx = e.touches[0].clientX;
+                const cy = e.touches[0].clientY;
+                updateNormalizedPointer(cx, cy);
+
+                const dx = cx - prevX;
+                const dy = cy - prevY;
+                prevX = cx;
+                prevY = cy;
+
+                state.targetCamTheta -= dx * 0.0065;
+                state.targetCamPhi = Math.max(-1.35, Math.min(1.35, state.targetCamPhi + dy * 0.0065));
+            }, { passive: true });
+
+            window.addEventListener('touchend', () => {
+                isPointerDown = false;
+            });
+
+            // Smooth Wheel Zoom
+            container.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                state.targetCamDistance = Math.max(2.2, Math.min(11.0, state.targetCamDistance + e.deltaY * 0.0035));
+            }, { passive: false });
+        }
+
+        // --- 5. UI BINDINGS, PRESETS & CODE INSPECTOR MODAL ---
+        const sliderConfig = [
+            { id: 's-symmetry',    valId: 'v-symmetry',    key: 'symmetry',      decimals: 0 },
+            { id: 's-moire',       valId: 'v-moire',       key: 'moireFreq',     decimals: 1 },
+            { id: 's-manifold',    valId: 'v-manifold',    key: 'manifoldMorph', decimals: 2 },
+            { id: 's-iridescence', valId: 'v-iridescence', key: 'iridescence',   decimals: 2 },
+            { id: 's-sprites',     valId: 'v-sprites',     key: 'spriteScale',   decimals: 2 },
+            { id: 's-vortex',      valId: 'v-vortex',      key: 'vortexSpeed',   decimals: 2 },
+            { id: 's-glitch',      valId: 'v-glitch',      key: 'glitch',        decimals: 2 },
+            { id: 's-acid',        valId: 'v-acid',        key: 'acid',          decimals: 2 }
+        ];
+
+        function syncSlidersFromState() {
+            sliderConfig.forEach(({ id, valId, key, decimals }) => {
+                const slider = document.getElementById(id);
+                const label = document.getElementById(valId);
+                if (slider && label) {
+                    slider.value = state[key];
+                    label.textContent = Number(state[key]).toFixed(decimals);
+                }
+            });
+        }
+
+        function setupUIControls() {
+            // Bind 8 Sliders
+            sliderConfig.forEach(({ id, valId, key, decimals }) => {
+                const slider = document.getElementById(id);
+                const label = document.getElementById(valId);
+                slider.addEventListener('input', (e) => {
+                    const val = parseFloat(e.target.value);
+                    state[key] = val;
+                    label.textContent = val.toFixed(decimals);
+                });
+            });
+
+            // Bind Layer Toggles
+            const btnBg = document.getElementById('toggle-layer-bg');
+            const btnMesh = document.getElementById('toggle-layer-mesh');
+            const btnSwarm = document.getElementById('toggle-layer-swarm');
+
+            btnBg.addEventListener('click', () => {
+                state.showLayerBG = !state.showLayerBG;
+                btnBg.classList.toggle('active', state.showLayerBG);
+                showToast(`LAYER 1 QUASICRYSTAL: ${state.showLayerBG ? 'ON' : 'OFF'}`);
+            });
+
+            btnMesh.addEventListener('click', () => {
+                state.showLayerMesh = !state.showLayerMesh;
+                manifoldMesh.visible = state.showLayerMesh;
+                btnMesh.classList.toggle('active', state.showLayerMesh);
+                showToast(`LAYER 2 4D MANIFOLD: ${state.showLayerMesh ? 'ON' : 'OFF'}`);
+            });
+
+            btnSwarm.addEventListener('click', () => {
+                state.showLayerSwarm = !state.showLayerSwarm;
+                spriteSwarmMesh.visible = state.showLayerSwarm;
+                btnSwarm.classList.toggle('active', state.showLayerSwarm);
+                showToast(`LAYER 3 14K SPRITE SWARM: ${state.showLayerSwarm ? 'ON' : 'OFF'}`);
+            });
+
+            // Bind 6 Curated Presets
+            const presetButtons = document.querySelectorAll('.preset-btn');
+            presetButtons.forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    const key = btn.getAttribute('data-preset');
+                    if (!PRESETS[key]) return;
+                    Object.assign(state, PRESETS[key]);
+                    syncSlidersFromState();
+
+                    presetButtons.forEach(b => b.classList.remove('active-preset'));
+                    btn.classList.add('active-preset');
+                    showToast(`PRESET LOADED // ${btn.children[0].textContent}`);
+                });
+            });
+
+            // Randomize Mutation Button
+            document.getElementById('btn-mutate').addEventListener('click', () => {
+                state.symmetry      = Math.floor(5 + Math.random() * 17);
+                state.moireFreq     = +(25.0 + Math.random() * 130.0).toFixed(1);
+                state.manifoldMorph = +(0.35 + Math.random() * 2.10).toFixed(2);
+                state.iridescence   = +(1.50 + Math.random() * 8.00).toFixed(2);
+                state.spriteScale   = +(0.75 + Math.random() * 2.10).toFixed(2);
+                state.vortexSpeed   = +(0.35 + Math.random() * 1.80).toFixed(2);
+                state.glitch        = +(Math.random() * 0.95).toFixed(2);
+                state.acid          = +(1.65 + Math.random() * 1.95).toFixed(2);
+                syncSlidersFromState();
+                presetButtons.forEach(b => b.classList.remove('active-preset'));
+                showToast('MUTATED ALL 3 LAYERS & SHADER UNIFORMS');
+            });
+
+            // Reset Camera Button
+            document.getElementById('btn-reset-camera').addEventListener('click', () => {
+                state.targetCamTheta = 0.35;
+                state.targetCamPhi = 0.22;
+                state.targetCamDistance = 5.4;
+                state.targetMouseX = 0.0;
+                state.targetMouseY = 0.0;
+                showToast('3D ORBIT CAMERA RESET');
+            });
+
+            // Pause / Play Button
+            const pauseBtn = document.getElementById('btn-pause-play');
+            function togglePause() {
+                state.paused = !state.paused;
+                pauseBtn.textContent = state.paused ? 'PLAY [SPACE]' : 'PAUSE [SPACE]';
+                showToast(state.paused ? 'SYNTHESIS PAUSED' : 'SYNTHESIS RUNNING');
+            }
+            pauseBtn.addEventListener('click', togglePause);
+
+            // Toggle HUD Visibility
+            const hudEl = document.getElementById('control-hud');
+            const toggleHudBtn = document.getElementById('btn-toggle-hud');
+            let hudOpen = true;
+            function toggleHud() {
+                hudOpen = !hudOpen;
+                hudEl.style.transform = hudOpen ? 'translateX(0)' : 'translateX(-115%)';
+                toggleHudBtn.textContent = hudOpen ? 'HIDE HUD [H]' : 'SHOW HUD [H]';
+            }
+            toggleHudBtn.addEventListener('click', toggleHud);
+
+            // Capture HD PNG Snapshot
+            document.getElementById('btn-capture-png').addEventListener('click', () => {
+                renderSynthesizerFrame();
+                const dataURL = renderer.domElement.toDataURL('image/png');
+                const a = document.createElement('a');
+                a.href = dataURL;
+                a.download = `psychedelic_quasicrystal_swarm_${Date.now()}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                showToast('CAPTURED HIGH-DEFINITION PNG');
+            });
+
+            // Code & Shader Inspector Modal
+            const codeModal = document.getElementById('code-modal');
+            const codePre = document.getElementById('code-inspector-pre');
+            const tabButtons = document.querySelectorAll('.code-tab-btn');
+
+            const codeSources = {
+                bgShader: `// =====================================================================\n// LAYER 1: PENROSE QUASICRYSTAL + BZ SPIRALS + HALFTONE MOIRÉ SHADER\n// =====================================================================\n\n` + document.getElementById('bg-fragment-shader').textContent.trim(),
+                manifoldShader: `// =====================================================================\n// LAYER 2: 4D CLIFFORD TORUS & RADIOLARIAN MANIFOLD VERTEX SHADER\n// =====================================================================\n\n` + document.getElementById('manifold-vertex-shader').textContent.trim() + `\n\n// =====================================================================\n// LAYER 2: THIN-FILM IRIDESCENCE & BIREFRINGENCE FRAGMENT SHADER\n// =====================================================================\n\n` + document.getElementById('manifold-fragment-shader').textContent.trim(),
+                spriteShader: `// =====================================================================\n// LAYER 3: 14,000 GPU-INSTANCED HOPF SPRITE SWARM VERTEX SHADER\n// =====================================================================\n\n` + document.getElementById('sprite-vertex-shader').textContent.trim() + `\n\n// =====================================================================\n// LAYER 3: PROCEDURAL VECTOR GLYPH SDF FRAGMENT SHADER\n// =====================================================================\n\n` + document.getElementById('sprite-fragment-shader').textContent.trim(),
+                jsInstancing: `// =====================================================================\n// THREE.JS r128 ENGINE & 14,000 INSTANCED SPRITE SWARM GENERATOR\n// =====================================================================\n\n` + document.getElementById('main-engine-script').textContent.trim()
+            };
+
+            let currentTabKey = 'bgShader';
+            codePre.textContent = codeSources[currentTabKey];
+
+            tabButtons.forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    currentTabKey = btn.getAttribute('data-tab');
+                    codePre.textContent = codeSources[currentTabKey];
+                    tabButtons.forEach(b => b.classList.remove('active-preset'));
+                    btn.classList.add('active-preset');
+                });
+            });
+
+            document.getElementById('btn-inspect-code').addEventListener('click', () => {
+                codeModal.classList.remove('hidden');
+                codeModal.classList.add('flex');
+            });
+
+            document.getElementById('btn-close-modal').addEventListener('click', () => {
+                codeModal.classList.add('hidden');
+                codeModal.classList.remove('flex');
+            });
+
+            document.getElementById('btn-copy-code').addEventListener('click', () => {
+                const temp = document.createElement('textarea');
+                temp.value = codeSources[currentTabKey];
+                temp.style.position = 'fixed';
+                temp.style.left = '-9999px';
+                document.body.appendChild(temp);
+                temp.select();
+                try {
+                    document.execCommand('copy');
+                    showToast('COPIED CODE TAB TO CLIPBOARD!');
+                } catch (err) {
+                    showToast('SELECT CODE MANUALLY TO COPY');
+                }
+                document.body.removeChild(temp);
+            });
+
+            // Keyboard Shortcuts
+            window.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' && document.activeElement.tagName !== 'BUTTON') {
+                    e.preventDefault();
+                    togglePause();
+                } else if (e.key === 'h' || e.key === 'H') {
+                    toggleHud();
+                } else if (e.key === 'Escape') {
+                    codeModal.classList.add('hidden');
+                    codeModal.classList.remove('flex');
+                }
+            });
+
+            syncSlidersFromState();
+        }
+
+        // --- 6. MAIN RENDER & ANIMATION LOOP ---
+        let elapsedSynthTime = 0.0;
+        let lastFrameTime = performance.now();
+
+        function renderSynthesizerFrame() {
+            // Smoothly damp camera & mouse coordinates
+            state.camTheta    += (state.targetCamTheta - state.camTheta) * 0.08;
+            state.camPhi      += (state.targetCamPhi - state.camPhi) * 0.08;
+            state.camDistance += (state.targetCamDistance - state.camDistance) * 0.08;
+            state.mouseX      += (state.targetMouseX - state.mouseX) * 0.08;
+            state.mouseY      += (state.targetMouseY - state.mouseY) * 0.08;
+
+            // Update 3D Camera Position on Orbital Sphere
+            const cosPhi = Math.cos(state.camPhi);
+            camera.position.x = state.camDistance * Math.sin(state.camTheta) * cosPhi;
+            camera.position.y = state.camDistance * Math.sin(state.camPhi);
+            camera.position.z = state.camDistance * Math.cos(state.camTheta) * cosPhi;
+            camera.lookAt(0, 0, 0);
+
+            // Update Layer 1 Uniforms (Background Quasicrystal & Moiré)
+            bgMaterial.uniforms.u_time.value        = elapsedSynthTime;
+            bgMaterial.uniforms.u_mouse.value.set(state.mouseX, state.mouseY);
+            bgMaterial.uniforms.u_camRot.value.set(state.camPhi, state.camTheta);
+            bgMaterial.uniforms.u_camZoom.value     = 5.4 / state.camDistance;
+            bgMaterial.uniforms.u_symmetry.value    = state.symmetry;
+            bgMaterial.uniforms.u_moireFreq.value   = state.moireFreq;
+            bgMaterial.uniforms.u_iridescence.value = state.iridescence;
+            bgMaterial.uniforms.u_vortexSpeed.value = state.vortexSpeed;
+            bgMaterial.uniforms.u_glitch.value      = state.glitch;
+            bgMaterial.uniforms.u_acid.value        = state.acid;
+
+            // Update Layer 2 Uniforms (4D Clifford / Radiolarian Manifold)
+            manifoldMaterial.uniforms.u_time.value          = elapsedSynthTime;
+            manifoldMaterial.uniforms.u_mouse.value.set(state.mouseX, state.mouseY);
+            manifoldMaterial.uniforms.u_symmetry.value      = state.symmetry;
+            manifoldMaterial.uniforms.u_moireFreq.value     = state.moireFreq;
+            manifoldMaterial.uniforms.u_manifoldMorph.value = state.manifoldMorph;
+            manifoldMaterial.uniforms.u_iridescence.value   = state.iridescence;
+            manifoldMaterial.uniforms.u_vortexSpeed.value   = state.vortexSpeed;
+            manifoldMaterial.uniforms.u_glitch.value        = state.glitch;
+            manifoldMaterial.uniforms.u_acid.value          = state.acid;
+
+            // Gently rotate manifold in 3D space as well
+            manifoldMesh.rotation.y = elapsedSynthTime * 0.18 * state.vortexSpeed;
+            manifoldMesh.rotation.x = Math.sin(elapsedSynthTime * 0.14) * 0.25;
+
+            // Update Layer 3 Uniforms (14,000 GPU-Instanced Sprite Swarm)
+            spriteSwarmMaterial.uniforms.u_time.value          = elapsedSynthTime;
+            spriteSwarmMaterial.uniforms.u_mouse.value.set(state.mouseX, state.mouseY);
+            spriteSwarmMaterial.uniforms.u_spriteScale.value   = state.spriteScale;
+            spriteSwarmMaterial.uniforms.u_vortexSpeed.value   = state.vortexSpeed;
+            spriteSwarmMaterial.uniforms.u_manifoldMorph.value = state.manifoldMorph;
+            spriteSwarmMaterial.uniforms.u_iridescence.value   = state.iridescence;
+            spriteSwarmMaterial.uniforms.u_acid.value          = state.acid;
+
+            // Execute Multi-Pass Render
+            renderer.clear();
+            if (state.showLayerBG) {
+                renderer.render(bgScene, bgCamera);
+            }
+            renderer.clearDepth();
+            renderer.render(scene, camera);
+        }
+
+        function animateLoop(now) {
+            const dt = Math.min((now - lastFrameTime) * 0.001, 0.1);
+            lastFrameTime = now;
+
+            if (!state.paused) {
+                elapsedSynthTime += dt;
+                // Gentle autonomous camera drift when idle
+                state.targetCamTheta += dt * 0.12 * state.vortexSpeed;
+            }
+
+            renderSynthesizerFrame();
+            requestAnimationFrame(animateLoop);
+        }
+
+        window.onload = () => {
+            initThreeSynthesizer();
+            setupUIControls();
+            requestAnimationFrame(animateLoop);
+        };
+    </script>
+</body>
+</html>
